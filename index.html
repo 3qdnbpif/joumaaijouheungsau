@@ -55,7 +55,7 @@
                     <option value="all">全部物品</option>
                     <option value="paid">💸 已俾錢</option>
                     <option value="arrived">📮 已到貨</option>
-                    <option value="home">🏠返咗屋企</option>
+                    <option value="home">🏠 返咗屋企</option>
                 </select>
             </div>
 
@@ -96,79 +96,4 @@
                 };
                 img.src = ev.target.result;
             };
-            reader.readAsDataURL(file);
-        }
-
-        function addItem() {
-            if (!tempPhoto) return alert("請先上傳照片！");
-            items.unshift({
-                id: Date.now(),
-                note: document.getElementById("item-note").value.trim() || "無備註",
-                photo: tempPhoto,
-                paid: false,
-                arrived: false,
-                home: false,
-                date: new Date().toISOString()
-            });
-            saveData();
-            tempPhoto = null;
-            document.getElementById("item-note").value = "";
-            renderItems();
-        }
-
-        function toggleStatus(id, field) {
-            const item = items.find(i => i.id === id);
-            if (item) item[field] = !item[field];
-            saveData();
-            renderItems();
-        }
-
-        function deleteItem(id) {
-            if (confirm("確定刪除？")) {
-                items = items.filter(i => i.id !== id);
-                saveData();
-                renderItems();
-            }
-        }
-
-        function renderItems() {
-            const container = document.getElementById("purchase-grid");
-            const filter = document.getElementById("status-filter").value;
-            const filtered = filter === 'all' ? items : items.filter(item => item[filter]);
-
-            container.innerHTML = filtered.length === 0 ? 
-                `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
-
-            filtered.forEach(item => {
-                const div = document.createElement("div");
-                div.className = "photo-item card relative";
-                div.innerHTML = `
-                    <img src="${item.photo}">
-                    <div class="p-3">
-                        <div class="text-sm font-medium">${item.note}</div>
-                        <div class="text-xs text-neutral-400">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
-                    </div>
-                    <div class="grid grid-cols-3 gap-1 p-2 border-t text-center text-lg">
-                        <button onclick="toggleStatus(${item.id}, 'paid')" class="py-2 rounded-xl ${item.paid?'bg-green-100 text-green-700':'bg-neutral-100'}">💸</button>
-                        <button onclick="toggleStatus(${item.id}, 'arrived')" class="py-2 rounded-xl ${item.arrived?'bg-blue-100 text-blue-700':'bg-neutral-100'}">📮</button>
-                        <button onclick="toggleStatus(${item.id}, 'home')" class="py-2 rounded-xl ${item.home?'bg-amber-100 text-amber-700':'bg-neutral-100'}">🏠返咗屋企</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function filterItems() { renderItems(); }
-
-        function clearAllData() {
-            if (confirm("清除所有紀錄？")) {
-                localStorage.clear();
-                items = [];
-                renderItems();
-            }
-        }
-
-        window.onload = loadData;
-    </script>
-</body>
-</html>
+            reader.readAsDataURL(file
