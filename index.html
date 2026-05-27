@@ -25,9 +25,17 @@
                     <i class="fa-solid fa-bear text-3xl text-[#5C6B6A]"></i>
                     <h1 class="text-2xl font-medium">早買早享受</h1>
                 </div>
-                <button onclick="clearAllData()" class="text-red-300 hover:text-red-500">
-                    <i class="fa-solid fa-trash-can"></i>
-                </button>
+                <div class="flex gap-4">
+                    <button onclick="showExportInfo()" class="text-[#5C6B6A]">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                    <button onclick="showImportInfo()" class="text-[#5C6B6A]">
+                        <i class="fa-solid fa-upload"></i>
+                    </button>
+                    <button onclick="clearAllData()" class="text-red-300 hover:text-red-500">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -51,8 +59,7 @@
 
             <div class="flex items-center gap-3 mb-6 px-1">
                 <span class="text-sm text-neutral-500">顯示：</span>
-                <select id="status-filter" onchange="filterItems()" 
-                        class="flex-1 bg-white border border-neutral-200 rounded-2xl px-5 py-3 text-base">
+                <select id="status-filter" onchange="filterItems()" class="flex-1 bg-white border border-neutral-200 rounded-2xl px-5 py-3 text-base">
                     <option value="all">全部物品</option>
                     <option value="paid">💸 已俾錢</option>
                     <option value="arrived">📮 已到貨</option>
@@ -63,6 +70,8 @@
             <div id="purchase-grid" class="photo-grid"></div>
         </main>
     </div>
+
+    <input type="file" id="import-input" accept=".json" class="hidden" onchange="importBackup(event)">
 
     <script>
         let items = [];
@@ -119,11 +128,9 @@
 
         function toggleStatus(id, field) {
             const item = items.find(i => i.id === id);
-            if (item) {
-                item[field] = !item[field];
-                saveData();
-                renderItems();
-            }
+            if (item) item[field] = !item[field];
+            saveData();
+            renderItems();
         }
 
         function deleteItem(id) {
@@ -152,12 +159,9 @@
                         <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
                     </div>
                     <div class="grid grid-cols-3 gap-1 p-2 border-t text-center text-lg">
-                        <button onclick="toggleStatus(${item.id}, 'paid')" 
-                                class="py-2 rounded-xl ${item.paid ? 'bg-green-100 text-green-700' : 'bg-neutral-100'}">💸</button>
-                        <button onclick="toggleStatus(${item.id}, 'arrived')" 
-                                class="py-2 rounded-xl ${item.arrived ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100'}">📮</button>
-                        <button onclick="toggleStatus(${item.id}, 'home')" 
-                                class="py-2 rounded-xl ${item.home ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100'}">🏠</button>
+                        <button onclick="toggleStatus(${item.id}, 'paid')" class="py-2 rounded-xl ${item.paid ? 'bg-green-100 text-green-700' : 'bg-neutral-100'}">💸</button>
+                        <button onclick="toggleStatus(${item.id}, 'arrived')" class="py-2 rounded-xl ${item.arrived ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100'}">📮</button>
+                        <button onclick="toggleStatus(${item.id}, 'home')" class="py-2 rounded-xl ${item.home ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100'}">🏠</button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -166,8 +170,72 @@
 
         function filterItems() { renderItems(); }
 
+        // ===== 備份功能 + 流程說明 =====
+        function showExportInfo() {
+            if (items.length === 0) {
+                alert("目前沒有紀錄可以備份！");
+                return;
+            }
+            const confirmExport = confirm(
+                "【備份流程】\n\n" +
+                "1. 即將下載備份檔案\n" +
+                "2. 請將檔案保存好（可傳到雲端或另一部電話）\n" +
+                "3. 換電話時使用「上傳」功能還原\n\n" +
+                "確定要下載備份嗎？"
+            );
+            if (confirmExport) exportBackup();
+        }
+
+        function exportBackup() {
+            const dataStr = JSON.stringify(items, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            const exportFileDefaultName = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            alert("✅ 備份檔案已下載！\n請妥善保存此檔案。");
+        }
+
+        function showImportInfo() {
+            const confirmImport = confirm(
+                "【還原備份流程】\n\n" +
+                "1. 請選擇之前下載的 .json 備份檔案\n" +
+                "2. 系統會取代目前所有紀錄\n" +
+                "3. 確定要繼續嗎？"
+            );
+            if (confirmImport) {
+                document.getElementById('import-input').click();
+            }
+        }
+
+        function importBackup(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const importedItems = JSON.parse(ev.target.result);
+                    if (Array.isArray(importedItems)) {
+                        items = importedItems;
+                        saveData();
+                        renderItems();
+                        alert("✅ 資料已成功還原！");
+                    } else {
+                        alert("檔案格式錯誤！");
+                    }
+                } catch (err) {
+                    alert("無法讀取備份檔案，請確認是否為正確的備份檔。");
+                }
+            };
+            reader.readAsText(file);
+        }
+
         function clearAllData() {
-            if (confirm("確定清除所有紀錄？")) {
+            if (confirm("⚠️ 確定清除所有紀錄？此動作無法復原！")) {
                 localStorage.clear();
                 items = [];
                 renderItems();
