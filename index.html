@@ -14,7 +14,7 @@
         .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(92, 107, 106, 0.08); }
         .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         .photo-item img { width: 100%; height: 200px; object-fit: cover; cursor: pointer; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body class="bg-[#F9F7F2]">
@@ -44,13 +44,29 @@
                 <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
                 
                 <div id="photo-preview" class="hidden mt-4">
-                    <p class="text-xs text-neutral-500 mb-2">預覽 (3:4 垂直)</p>
+                    <p class="text-xs text-neutral-500 mb-2">預覽</p>
                     <img id="preview-img" class="w-full rounded-2xl">
                 </div>
-                
+
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
                        class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
-                
+
+                <!-- 狀態勾選 -->
+                <div class="mt-6 grid grid-cols-3 gap-3 text-center">
+                    <label class="flex items-center justify-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="new-paid" class="w-5 h-5">
+                        <span>💸 已俾錢</span>
+                    </label>
+                    <label class="flex items-center justify-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="new-arrived" class="w-5 h-5">
+                        <span>📮 已到貨</span>
+                    </label>
+                    <label class="flex items-center justify-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="new-home" class="w-5 h-5">
+                        <span>🏠 返咗屋企</span>
+                    </label>
+                </div>
+
                 <button onclick="addItem()" class="w-full mt-6 bg-[#5C6B6A] text-white py-4 rounded-2xl font-medium">
                     加入紀錄
                 </button>
@@ -59,7 +75,7 @@
             <div id="purchase-grid" class="photo-grid"></div>
         </main>
 
-        <!-- 底部固定分頁 -->
+        <!-- 底部導航 -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white border-t">
             <div class="flex text-xs font-medium">
                 <div onclick="switchTab(0)" class="flex-1 py-3 flex flex-col items-center nav-active" id="tab-0">全部</div>
@@ -70,27 +86,22 @@
         </nav>
     </div>
 
-    <!-- 詳情 Modal -->
+    <!-- 詳情頁 -->
     <div id="detail-modal" class="modal">
         <div class="bg-white w-full max-w-[480px] min-h-screen flex flex-col">
-            <div class="flex justify-between items-center p-4 border-b">
-                <button onclick="closeDetail()" class="text-xl">←</button>
+            <div class="p-4 border-b flex justify-between">
+                <button onclick="closeDetail()" class="text-2xl">←</button>
                 <h3 class="font-medium">物品詳情</h3>
-                <button onclick="deleteCurrentItem()" class="text-red-500">刪除</button>
+                <button onclick="deleteCurrent()" class="text-red-500">刪除</button>
             </div>
-            
-            <div class="flex-1 overflow-auto">
-                <img id="detail-photo" class="w-full" style="height: 420px; object-fit: cover;">
-                
-                <div class="p-6">
-                    <textarea id="detail-note" class="w-full h-24 p-4 border border-neutral-200 rounded-2xl focus:outline-none" placeholder="備註..."></textarea>
-                </div>
+            <img id="detail-photo" class="w-full h-96 object-cover">
+            <div class="p-6 flex-1">
+                <textarea id="detail-note" class="w-full h-32 p-4 border rounded-2xl" placeholder="備註"></textarea>
             </div>
-            
             <div class="p-4 border-t flex justify-between">
-                <button onclick="prevItem()" class="w-12 h-12 flex items-center justify-center text-3xl">←</button>
-                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-10 py-3 rounded-2xl">儲存修改</button>
-                <button onclick="nextItem()" class="w-12 h-12 flex items-center justify-center text-3xl">→</button>
+                <button onclick="prevDetail()" class="text-4xl px-6">←</button>
+                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-12 py-3 rounded-2xl">儲存</button>
+                <button onclick="nextDetail()" class="text-4xl px-6">→</button>
             </div>
         </div>
     </div>
@@ -102,6 +113,7 @@
         const STORAGE_KEY = "early_buy_items";
         let currentTab = 0;
         let currentDetailIndex = -1;
+        let tempPhoto = null;
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -113,52 +125,45 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         }
 
-        let tempPhoto = null;
-
         function handlePhotoUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(ev) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    // 3:4 垂直比例
-                    const targetRatio = 3/4;
-                    let w = img.width, h = img.height;
-                    if (w / h > targetRatio) w = h * targetRatio;
-                    else h = w / targetRatio;
-                    
-                    canvas.width = w;
-                    canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    
-                    tempPhoto = canvas.toDataURL('image/jpeg', 0.82);
-                    document.getElementById('preview-img').src = tempPhoto;
-                    document.getElementById('photo-preview').classList.remove('hidden');
-                };
-                img.src = ev.target.result;
+                tempPhoto = ev.target.result;
+                document.getElementById('preview-img').src = tempPhoto;
+                document.getElementById('photo-preview').classList.remove('hidden');
             };
             reader.readAsDataURL(file);
         }
 
         function addItem() {
             if (!tempPhoto) return alert("請先上傳照片！");
+
+            const note = document.getElementById("item-note").value.trim() || "無備註";
+
             items.unshift({
                 id: Date.now(),
-                note: document.getElementById("item-note").value.trim() || "無備註",
+                note: note,
                 photo: tempPhoto,
+                paid: document.getElementById("new-paid").checked,
+                arrived: document.getElementById("new-arrived").checked,
+                home: document.getElementById("new-home").checked,
                 date: new Date().toISOString()
             });
+
             saveData();
             resetForm();
             renderItems();
+            alert("✅ 已加入紀錄！");
         }
 
         function resetForm() {
             tempPhoto = null;
             document.getElementById("item-note").value = "";
+            document.getElementById("new-paid").checked = false;
+            document.getElementById("new-arrived").checked = false;
+            document.getElementById("new-home").checked = false;
             document.getElementById('photo-preview').classList.add('hidden');
         }
 
@@ -173,11 +178,12 @@
             container.innerHTML = filtered.length === 0 ? 
                 `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
 
-            filtered.forEach((item, idx) => {
+            filtered.forEach((item, globalIndex) => {
+                const idx = items.indexOf(item);
                 const div = document.createElement("div");
                 div.className = "photo-item card";
                 div.innerHTML = `
-                    <img src="${item.photo}" onclick="openDetail(${items.indexOf(item)})">
+                    <img src="${item.photo}" onclick="openDetail(${idx})">
                     <div class="p-3">
                         <div class="text-sm font-medium">${item.note}</div>
                         <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
@@ -196,7 +202,6 @@
             renderItems();
         }
 
-        // 詳情頁功能
         function openDetail(index) {
             currentDetailIndex = index;
             const item = items[index];
@@ -211,24 +216,23 @@
 
         function saveDetail() {
             if (currentDetailIndex === -1) return;
-            const item = items[currentDetailIndex];
-            item.note = document.getElementById("detail-note").value.trim() || "無備註";
+            items[currentDetailIndex].note = document.getElementById("detail-note").value.trim() || "無備註";
             saveData();
             closeDetail();
             renderItems();
         }
 
-        function prevItem() {
+        function prevDetail() {
             if (currentDetailIndex > 0) openDetail(currentDetailIndex - 1);
         }
 
-        function nextItem() {
+        function nextDetail() {
             if (currentDetailIndex < items.length - 1) openDetail(currentDetailIndex + 1);
         }
 
-        function deleteCurrentItem() {
+        function deleteCurrent() {
             if (currentDetailIndex === -1) return;
-            if (confirm("確定刪除此物品？")) {
+            if (confirm("確定刪除？")) {
                 items.splice(currentDetailIndex, 1);
                 saveData();
                 closeDetail();
@@ -238,38 +242,30 @@
 
         // 備份功能
         function showExportInfo() {
-            if (items.length === 0) return alert("無紀錄可備份");
-            if (confirm("即將下載備份檔案\n確定？")) exportBackup();
+            if (items.length === 0) return alert("無紀錄");
+            if (confirm("下載備份？")) exportBackup();
         }
 
         function exportBackup() {
             const link = document.createElement('a');
-            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(items, null, 2));
-            link.download = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
+            link.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(items));
+            link.download = `早買早享受_備份.json`;
             link.click();
         }
 
         function showImportInfo() {
-            if (confirm("還原備份將取代目前所有資料\n確定繼續？")) {
-                document.getElementById('import-input').click();
-            }
+            if (confirm("還原備份？")) document.getElementById('import-input').click();
         }
 
         function importBackup(e) {
-            const file = e.target.files[0];
-            if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    items = JSON.parse(ev.target.result);
-                    saveData();
-                    renderItems();
-                    alert("✅ 還原成功！");
-                } catch(err) {
-                    alert("檔案錯誤！");
-                }
+            reader.onload = () => {
+                items = JSON.parse(reader.result);
+                saveData();
+                renderItems();
+                alert("還原成功！");
             };
-            reader.readAsText(file);
+            reader.readAsText(e.target.files[0]);
         }
 
         window.onload = () => {
