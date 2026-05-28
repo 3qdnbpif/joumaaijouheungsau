@@ -14,8 +14,7 @@
         .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(92, 107, 106, 0.08); }
         .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         .photo-item { position: relative; border-radius: 16px; overflow: hidden; background: white; }
-        .photo-item img { width: 100%; height: 150px; object-fit: cover; } /* 1:1 正方形 */
-        .nav-active { color: #5C6B6A; border-bottom: 3px solid #5C6B6A; }
+        .photo-item img { width: 100%; height: 200px; object-fit: cover; cursor: pointer; } /* 3:4 垂直 */
     </style>
 </head>
 <body class="bg-[#F9F7F2]">
@@ -44,10 +43,9 @@
                 </div>
                 <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
                 
-                <!-- 預覽區 -->
                 <div id="photo-preview" class="hidden mt-4">
-                    <p class="text-xs text-neutral-500 mb-2">預覽</p>
-                    <img id="preview-img" class="w-full h-52 object-cover rounded-2xl">
+                    <p class="text-xs text-neutral-500 mb-2">預覽 (3:4)</p>
+                    <img id="preview-img" class="w-full rounded-2xl">
                 </div>
                 
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
@@ -58,28 +56,20 @@
                 </button>
             </div>
 
+            <!-- 自定義分類管理 -->
+            <div class="flex gap-2 mb-4">
+                <input id="new-category" placeholder="新增分類名稱" 
+                       class="flex-1 px-4 py-3 border border-neutral-200 rounded-2xl focus:outline-none">
+                <button onclick="addCategory()" class="px-6 bg-neutral-800 text-white rounded-2xl">新增</button>
+            </div>
+
             <div id="purchase-grid" class="photo-grid"></div>
         </main>
 
-        <!-- 底部導航分頁 -->
+        <!-- 底部導航 -->
         <nav class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white border-t">
-            <div class="flex text-xs font-medium">
-                <div onclick="switchTab(0)" class="flex-1 py-3 flex flex-col items-center nav-active" id="tab-0">
-                    <i class="fa-solid fa-list text-lg"></i>
-                    <span>全部</span>
-                </div>
-                <div onclick="switchTab(1)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-1">
-                    <span class="text-xl">💸</span>
-                    <span>已俾錢</span>
-                </div>
-                <div onclick="switchTab(2)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-2">
-                    <span class="text-xl">📮</span>
-                    <span>已到貨</span>
-                </div>
-                <div onclick="switchTab(3)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-3">
-                    <span class="text-xl">🏠</span>
-                    <span>返咗屋企</span>
-                </div>
+            <div class="flex overflow-x-auto text-xs font-medium" id="category-tabs">
+                <!-- JS 動態生成 -->
             </div>
         </nav>
     </div>
@@ -88,17 +78,23 @@
 
     <script>
         let items = [];
+        let categories = ["全部", "未分類", "Uniqlo", "Muji", "藥妝", "零食"]; // 預設分類
         const STORAGE_KEY = "early_buy_items";
-        let currentTab = 0;
+        let currentCategory = "全部";
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) items = JSON.parse(saved);
+            if (saved) {
+                const data = JSON.parse(saved);
+                items = data.items || data;
+                if (data.categories) categories = data.categories;
+            }
+            renderCategories();
             renderItems();
         }
 
         function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({items, categories}));
         }
 
         let tempPhoto = null;
@@ -112,17 +108,20 @@
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
+                    const ratio = 3/4; // 3:4 垂直
                     let w = img.width, h = img.height;
-                    // 1:1 正方形裁剪
-                    const size = Math.min(w, h);
-                    canvas.width = size;
-                    canvas.height = size;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, (w - size)/2, (h - size)/2, size, size, 0, 0, size, size);
                     
-                    tempPhoto = canvas.toDataURL('image/jpeg', 0.8);
+                    if (w / h > 3/4) {
+                        w = h * 3/4;
+                    } else {
+                        h = w * 4/3;
+                    }
                     
-                    // 顯示預覽
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    
+                    tempPhoto = canvas.toDataURL('image/jpeg', 0.82);
                     document.getElementById('preview-img').src = tempPhoto;
                     document.getElementById('photo-preview').classList.remove('hidden');
                 };
@@ -133,38 +132,49 @@
 
         function addItem() {
             if (!tempPhoto) return alert("請先上傳照片！");
-            
             items.unshift({
                 id: Date.now(),
                 note: document.getElementById("item-note").value.trim() || "無備註",
                 photo: tempPhoto,
-                paid: false,
-                arrived: false,
-                home: false,
+                category: "未分類",
                 date: new Date().toISOString()
             });
-            
             saveData();
-            tempPhoto = null;
-            document.getElementById("item-note").value = "";
-            document.getElementById('photo-preview').classList.add('hidden');
+            resetUploadForm();
             renderItems();
         }
 
-        function toggleStatus(id, field) {
-            const item = items.find(i => i.id === id);
-            if (item) {
-                item[field] = !item[field];
-                saveData();
-                renderItems();
-            }
+        function resetUploadForm() {
+            tempPhoto = null;
+            document.getElementById("item-note").value = "";
+            document.getElementById('photo-preview').classList.add('hidden');
         }
 
-        function deleteItem(id) {
-            if (confirm("確定刪除？")) {
-                items = items.filter(i => i.id !== id);
+        function renderCategories() {
+            const container = document.getElementById("category-tabs");
+            container.innerHTML = "";
+            
+            categories.forEach(cat => {
+                const div = document.createElement("div");
+                div.className = `px-5 py-3 whitespace-nowrap flex-shrink-0 ${currentCategory === cat ? 'nav-active text-[#5C6B6A]' : 'text-neutral-400'}`;
+                div.textContent = cat;
+                div.onclick = () => {
+                    currentCategory = cat;
+                    renderCategories();
+                    renderItems();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function addCategory() {
+            const input = document.getElementById("new-category");
+            const name = input.value.trim();
+            if (name && !categories.includes(name)) {
+                categories.push(name);
                 saveData();
-                renderItems();
+                renderCategories();
+                input.value = "";
             }
         }
 
@@ -172,65 +182,56 @@
             const container = document.getElementById("purchase-grid");
             let filtered = items;
 
-            if (currentTab === 1) filtered = items.filter(i => i.paid);
-            if (currentTab === 2) filtered = items.filter(i => i.arrived);
-            if (currentTab === 3) filtered = items.filter(i => i.home);
+            if (currentCategory !== "全部") {
+                filtered = items.filter(item => item.category === currentCategory);
+            }
 
             container.innerHTML = filtered.length === 0 ? 
-                `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
+                `<div class="col-span-full text-center py-20 text-neutral-400">此分類暫無紀錄</div>` : "";
 
             filtered.forEach(item => {
                 const div = document.createElement("div");
                 div.className = "photo-item card relative";
                 div.innerHTML = `
-                    <img src="${item.photo}">
+                    <img src="${item.photo}" onclick="editItem(${item.id})">
                     <div class="p-3">
                         <div class="text-sm font-medium">${item.note}</div>
                         <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
-                    </div>
-                    <div class="grid grid-cols-3 gap-1 p-2 border-t text-center text-lg">
-                        <button onclick="toggleStatus(${item.id}, 'paid');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.paid ? 'bg-green-100 text-green-700' : 'bg-neutral-100'}">💸</button>
-                        <button onclick="toggleStatus(${item.id}, 'arrived');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.arrived ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100'}">📮</button>
-                        <button onclick="toggleStatus(${item.id}, 'home');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.home ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100'}">🏠</button>
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function switchTab(tab) {
-            currentTab = tab;
-            document.querySelectorAll('nav > div > div').forEach((el, i) => {
-                if (i === tab) {
-                    el.classList.add('nav-active');
-                    el.classList.remove('text-neutral-400');
-                } else {
-                    el.classList.remove('nav-active');
-                    el.classList.add('text-neutral-400');
-                }
-            });
-            renderItems();
+        // 編輯功能
+        function editItem(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            const newNote = prompt("修改備註：", item.note);
+            if (newNote !== null) {
+                item.note = newNote.trim() || "無備註";
+                saveData();
+                renderItems();
+            }
         }
 
-        // 備份功能（保持不變）
+        // 備份功能
         function showExportInfo() {
             if (items.length === 0) return alert("無紀錄可備份");
-            if (confirm("即將下載備份檔案\n\n換電話時可用來還原\n確定？")) exportBackup();
+            if (confirm("即將下載備份\n換電話時可用\n確定？")) exportBackup();
         }
 
         function exportBackup() {
-            const dataStr = JSON.stringify(items, null, 2);
+            const data = {items, categories};
             const link = document.createElement('a');
-            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
             link.download = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
             link.click();
-            alert("✅ 備份已下載！");
         }
 
         function showImportInfo() {
-            if (confirm("即將還原備份\n目前資料會被取代\n確定？")) {
-                document.getElementById('import-input').click();
-            }
+            if (confirm("還原備份將取代目前資料\n確定？")) document.getElementById('import-input').click();
         }
 
         function importBackup(e) {
@@ -239,8 +240,11 @@
             const reader = new FileReader();
             reader.onload = function(ev) {
                 try {
-                    items = JSON.parse(ev.target.result);
+                    const data = JSON.parse(ev.target.result);
+                    items = data.items || data;
+                    if (data.categories) categories = data.categories;
                     saveData();
+                    renderCategories();
                     renderItems();
                     alert("✅ 還原成功！");
                 } catch(err) {
@@ -250,18 +254,7 @@
             reader.readAsText(file);
         }
 
-        function clearAllData() {
-            if (confirm("確定清除所有紀錄？")) {
-                localStorage.clear();
-                items = [];
-                renderItems();
-            }
-        }
-
-        window.onload = () => {
-            loadData();
-            switchTab(0); // 預設顯示全部
-        };
+        window.onload = loadData;
     </script>
 </body>
 </html>
