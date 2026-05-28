@@ -12,9 +12,10 @@
         body { font-family: 'Noto Sans TC', 'Noto Sans JP', system-ui, sans-serif; }
         .tail-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #F9F7F2; }
         .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(92, 107, 106, 0.08); }
-        .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 14px; }
+        .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         .photo-item { position: relative; border-radius: 16px; overflow: hidden; background: white; }
-        .photo-item img { width: 100%; height: 165px; object-fit: cover; cursor: pointer; }
+        .photo-item img { width: 100%; height: 150px; object-fit: cover; } /* 1:1 正方形 */
+        .nav-active { color: #5C6B6A; border-bottom: 3px solid #5C6B6A; }
     </style>
 </head>
 <body class="bg-[#F9F7F2]">
@@ -28,12 +29,12 @@
                 <div class="flex gap-4">
                     <button onclick="showExportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-download"></i></button>
                     <button onclick="showImportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-upload"></i></button>
-                    <button onclick="clearAllData()" class="text-red-300 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto p-5 pb-20">
+        <main class="flex-1 overflow-y-auto p-5 pb-24">
+            <!-- 上傳區域 -->
             <div class="card p-6 mb-8">
                 <h2 class="font-medium mb-4">📸 上傳新物品</h2>
                 <div onclick="document.getElementById('photo-input').click()" 
@@ -43,6 +44,12 @@
                 </div>
                 <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
                 
+                <!-- 預覽區 -->
+                <div id="photo-preview" class="hidden mt-4">
+                    <p class="text-xs text-neutral-500 mb-2">預覽</p>
+                    <img id="preview-img" class="w-full h-52 object-cover rounded-2xl">
+                </div>
+                
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
                        class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
                 
@@ -51,41 +58,30 @@
                 </button>
             </div>
 
-            <div class="flex items-center gap-3 mb-6 px-1">
-                <span class="text-sm text-neutral-500">顯示：</span>
-                <select id="status-filter" onchange="filterItems()" class="flex-1 bg-white border border-neutral-200 rounded-2xl px-5 py-3 text-base">
-                    <option value="all">全部物品</option>
-                    <option value="paid">💸 已俾錢</option>
-                    <option value="arrived">📮 已到貨</option>
-                    <option value="home">🏠 返咗屋企</option>
-                </select>
-            </div>
-
             <div id="purchase-grid" class="photo-grid"></div>
         </main>
-    </div>
 
-    <!-- 編輯 Modal -->
-    <div id="edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-        <div class="bg-white rounded-3xl w-[92%] max-w-[420px] p-6">
-            <h3 class="font-medium text-lg mb-4">編輯物品</h3>
-            
-            <img id="modal-photo-preview" class="w-full h-52 object-cover rounded-2xl mb-4">
-            
-            <div onclick="document.getElementById('edit-photo-input').click()" 
-                 class="border-2 border-dashed border-neutral-300 rounded-2xl py-4 text-center cursor-pointer hover:border-[#5C6B6A]">
-                📸 點擊更換照片
+        <!-- 底部導航分頁 -->
+        <nav class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white border-t">
+            <div class="flex text-xs font-medium">
+                <div onclick="switchTab(0)" class="flex-1 py-3 flex flex-col items-center nav-active" id="tab-0">
+                    <i class="fa-solid fa-list text-lg"></i>
+                    <span>全部</span>
+                </div>
+                <div onclick="switchTab(1)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-1">
+                    <span class="text-xl">💸</span>
+                    <span>已俾錢</span>
+                </div>
+                <div onclick="switchTab(2)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-2">
+                    <span class="text-xl">📮</span>
+                    <span>已到貨</span>
+                </div>
+                <div onclick="switchTab(3)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-3">
+                    <span class="text-xl">🏠</span>
+                    <span>返咗屋企</span>
+                </div>
             </div>
-            <input type="file" id="edit-photo-input" accept="image/*" class="hidden" onchange="handleEditPhotoUpload(event)">
-            
-            <input id="edit-note" type="text" placeholder="修改備註" 
-                   class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
-            
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal()" class="flex-1 py-4 border border-neutral-200 rounded-2xl font-medium">取消</button>
-                <button onclick="saveEdit()" class="flex-1 py-4 bg-[#5C6B6A] text-white rounded-2xl font-medium">儲存修改</button>
-            </div>
-        </div>
+        </nav>
     </div>
 
     <input type="file" id="import-input" accept=".json" class="hidden" onchange="importBackup(event)">
@@ -93,8 +89,7 @@
     <script>
         let items = [];
         const STORAGE_KEY = "early_buy_items";
-        let currentEditingId = null;
-        let tempNewPhoto = null;
+        let currentTab = 0;
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -111,32 +106,25 @@
         function handlePhotoUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-            processImage(file, (base64) => {
-                tempPhoto = base64;
-                alert("✅ 新照片已準備好！");
-            });
-        }
 
-        function handleEditPhotoUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            processImage(file, (base64) => {
-                tempNewPhoto = base64;
-                document.getElementById("modal-photo-preview").src = base64;
-            });
-        }
-
-        function processImage(file, callback) {
             const reader = new FileReader();
             reader.onload = function(ev) {
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    if (w > 700) { h = Math.round(h * 700 / w); w = 700; }
-                    canvas.width = w; canvas.height = h;
-                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-                    callback(canvas.toDataURL('image/jpeg', 0.78));
+                    // 1:1 正方形裁剪
+                    const size = Math.min(w, h);
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, (w - size)/2, (h - size)/2, size, size, 0, 0, size, size);
+                    
+                    tempPhoto = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // 顯示預覽
+                    document.getElementById('preview-img').src = tempPhoto;
+                    document.getElementById('photo-preview').classList.remove('hidden');
                 };
                 img.src = ev.target.result;
             };
@@ -145,6 +133,7 @@
 
         function addItem() {
             if (!tempPhoto) return alert("請先上傳照片！");
+            
             items.unshift({
                 id: Date.now(),
                 note: document.getElementById("item-note").value.trim() || "無備註",
@@ -154,9 +143,11 @@
                 home: false,
                 date: new Date().toISOString()
             });
+            
             saveData();
             tempPhoto = null;
             document.getElementById("item-note").value = "";
+            document.getElementById('photo-preview').classList.add('hidden');
             renderItems();
         }
 
@@ -170,51 +161,20 @@
         }
 
         function deleteItem(id) {
-            if (confirm("確定刪除這筆紀錄？")) {
+            if (confirm("確定刪除？")) {
                 items = items.filter(i => i.id !== id);
                 saveData();
                 renderItems();
             }
         }
 
-        // ===== 編輯功能 =====
-        function editItem(id) {
-            const item = items.find(i => i.id === id);
-            if (!item) return;
-            
-            currentEditingId = id;
-            tempNewPhoto = null;
-            
-            document.getElementById("modal-photo-preview").src = item.photo;
-            document.getElementById("edit-note").value = item.note === "無備註" ? "" : item.note;
-            document.getElementById("edit-modal").classList.remove('hidden');
-        }
-
-        function saveEdit() {
-            if (!currentEditingId) return;
-            const item = items.find(i => i.id === currentEditingId);
-            if (item) {
-                const newNote = document.getElementById("edit-note").value.trim();
-                item.note = newNote || "無備註";
-                if (tempNewPhoto) item.photo = tempNewPhoto;
-                
-                saveData();
-                closeModal();
-                renderItems();
-                alert("✅ 已儲存修改！");
-            }
-        }
-
-        function closeModal() {
-            document.getElementById("edit-modal").classList.add('hidden');
-            currentEditingId = null;
-            tempNewPhoto = null;
-        }
-
         function renderItems() {
             const container = document.getElementById("purchase-grid");
-            const filter = document.getElementById("status-filter").value;
-            const filtered = filter === 'all' ? items : items.filter(item => item[filter]);
+            let filtered = items;
+
+            if (currentTab === 1) filtered = items.filter(i => i.paid);
+            if (currentTab === 2) filtered = items.filter(i => i.arrived);
+            if (currentTab === 3) filtered = items.filter(i => i.home);
 
             container.innerHTML = filtered.length === 0 ? 
                 `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
@@ -223,44 +183,52 @@
                 const div = document.createElement("div");
                 div.className = "photo-item card relative";
                 div.innerHTML = `
-                    <img src="${item.photo}" onclick="editItem(${item.id})">
+                    <img src="${item.photo}">
                     <div class="p-3">
                         <div class="text-sm font-medium">${item.note}</div>
                         <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
                     </div>
                     <div class="grid grid-cols-3 gap-1 p-2 border-t text-center text-lg">
-                        <button onclick="toggleStatus(${item.id}, 'paid');event.stopImmediatePropagation()" 
-                                class="py-2 rounded-xl ${item.paid ? 'bg-green-100 text-green-700' : 'bg-neutral-100'}">💸</button>
-                        <button onclick="toggleStatus(${item.id}, 'arrived');event.stopImmediatePropagation()" 
-                                class="py-2 rounded-xl ${item.arrived ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100'}">📮</button>
-                        <button onclick="toggleStatus(${item.id}, 'home');event.stopImmediatePropagation()" 
-                                class="py-2 rounded-xl ${item.home ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100'}">🏠</button>
+                        <button onclick="toggleStatus(${item.id}, 'paid');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.paid ? 'bg-green-100 text-green-700' : 'bg-neutral-100'}">💸</button>
+                        <button onclick="toggleStatus(${item.id}, 'arrived');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.arrived ? 'bg-blue-100 text-blue-700' : 'bg-neutral-100'}">📮</button>
+                        <button onclick="toggleStatus(${item.id}, 'home');event.stopImmediatePropagation()" class="py-2 rounded-xl ${item.home ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100'}">🏠</button>
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function filterItems() { renderItems(); }
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('nav > div > div').forEach((el, i) => {
+                if (i === tab) {
+                    el.classList.add('nav-active');
+                    el.classList.remove('text-neutral-400');
+                } else {
+                    el.classList.remove('nav-active');
+                    el.classList.add('text-neutral-400');
+                }
+            });
+            renderItems();
+        }
 
         // 備份功能（保持不變）
         function showExportInfo() {
-            if (items.length === 0) return alert("目前沒有紀錄！");
-            if (confirm("即將下載備份檔案\n換電話時可用來還原\n\n確定下載？")) exportBackup();
+            if (items.length === 0) return alert("無紀錄可備份");
+            if (confirm("即將下載備份檔案\n\n換電話時可用來還原\n確定？")) exportBackup();
         }
 
         function exportBackup() {
             const dataStr = JSON.stringify(items, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`);
-            linkElement.click();
+            const link = document.createElement('a');
+            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            link.download = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
             alert("✅ 備份已下載！");
         }
 
         function showImportInfo() {
-            if (confirm("即將還原備份\n目前資料會被取代\n\n確定繼續？")) {
+            if (confirm("即將還原備份\n目前資料會被取代\n確定？")) {
                 document.getElementById('import-input').click();
             }
         }
@@ -271,27 +239,29 @@
             const reader = new FileReader();
             reader.onload = function(ev) {
                 try {
-                    const imported = JSON.parse(ev.target.result);
-                    items = imported;
+                    items = JSON.parse(ev.target.result);
                     saveData();
                     renderItems();
-                    alert("✅ 資料還原成功！");
-                } catch (err) {
-                    alert("檔案格式錯誤！");
+                    alert("✅ 還原成功！");
+                } catch(err) {
+                    alert("檔案錯誤！");
                 }
             };
             reader.readAsText(file);
         }
 
         function clearAllData() {
-            if (confirm("⚠️ 確定清除所有紀錄？")) {
+            if (confirm("確定清除所有紀錄？")) {
                 localStorage.clear();
                 items = [];
                 renderItems();
             }
         }
 
-        window.onload = loadData;
+        window.onload = () => {
+            loadData();
+            switchTab(0); // 預設顯示全部
+        };
     </script>
 </body>
 </html>
