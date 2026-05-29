@@ -6,30 +6,18 @@
     <title>早買早享受</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&amp;family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Noto Sans TC', 'Noto Sans JP', system-ui, sans-serif; }
+        body { font-family: system-ui, sans-serif; }
         .tail-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #F9F7F2; }
-        .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(92, 107, 106, 0.08); }
+        .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-        .photo-item img { width: 100%; height: 200px; object-fit: cover; cursor: pointer; }
-        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body class="bg-[#F9F7F2]">
     <div class="tail-container flex flex-col">
         <header class="bg-white border-b px-6 py-5">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <i class="fa-solid fa-bear text-3xl text-[#5C6B6A]"></i>
-                    <h1 class="text-2xl font-medium">早買早享受</h1>
-                </div>
-                <div class="flex gap-4">
-                    <button onclick="showExportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-download"></i></button>
-                    <button onclick="showImportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-upload"></i></button>
-                </div>
-            </div>
+            <h1 class="text-2xl font-medium text-center">早買早享受</h1>
         </header>
 
         <main class="flex-1 overflow-y-auto p-5 pb-24">
@@ -37,88 +25,47 @@
                 <h2 class="font-medium mb-4">📸 上傳新物品</h2>
                 
                 <div onclick="document.getElementById('photo-input').click()" 
-                     class="border-2 border-dashed border-neutral-300 rounded-3xl h-52 flex flex-col items-center justify-center cursor-pointer hover:border-[#5C6B6A]">
-                    <i class="fa-solid fa-camera text-5xl text-neutral-300 mb-3"></i>
-                    <p class="text-neutral-500">拍照或選擇相片</p>
+                     class="border-2 border-dashed border-gray-300 rounded-3xl h-52 flex flex-col items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-camera text-5xl text-gray-400 mb-3"></i>
+                    <p class="text-gray-500">點擊上傳照片</p>
                 </div>
                 <input type="file" id="photo-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(event)">
                 
                 <div id="photo-preview" class="hidden mt-4">
-                    <p class="text-xs text-neutral-500 mb-2">預覽</p>
                     <img id="preview-img" class="w-full rounded-2xl">
                 </div>
 
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
-                       class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
+                       class="w-full mt-5 px-5 py-4 border rounded-2xl">
 
-                <div class="mt-6 grid grid-cols-3 gap-4 text-center">
-                    <label class="cursor-pointer">
-                        <input type="checkbox" id="new-paid" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="block text-sm mt-1">💸 已俾錢</span>
+                <div class="mt-6 grid grid-cols-3 gap-4">
+                    <label class="flex flex-col items-center">
+                        <input type="checkbox" id="new-paid" class="w-6 h-6">
+                        <span class="text-xs mt-1">💸 已俾錢</span>
                     </label>
-                    <label class="cursor-pointer">
-                        <input type="checkbox" id="new-arrived" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="block text-sm mt-1">📮 已到貨</span>
+                    <label class="flex flex-col items-center">
+                        <input type="checkbox" id="new-arrived" class="w-6 h-6">
+                        <span class="text-xs mt-1">📮 已到貨</span>
                     </label>
-                    <label class="cursor-pointer">
-                        <input type="checkbox" id="new-home" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="block text-sm mt-1">🏠 返咗屋企</span>
+                    <label class="flex flex-col items-center">
+                        <input type="checkbox" id="new-home" class="w-6 h-6">
+                        <span class="text-xs mt-1">🏠 返咗屋企</span>
                     </label>
                 </div>
 
                 <button onclick="addItem()" 
-                        class="w-full mt-8 bg-[#5C6B6A] text-white py-5 rounded-2xl font-medium text-lg">
+                        class="w-full mt-8 bg-blue-600 text-white py-5 rounded-2xl font-medium">
                     加入紀錄
                 </button>
             </div>
 
             <div id="purchase-grid" class="photo-grid"></div>
         </main>
-
-        <!-- 底部導航 -->
-        <nav class="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto bg-white border-t">
-            <div class="flex text-xs font-medium">
-                <div onclick="switchTab(0)" class="flex-1 py-3 flex flex-col items-center nav-active" id="tab-0">全部</div>
-                <div onclick="switchTab(1)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-1">💸 已俾錢</div>
-                <div onclick="switchTab(2)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-2">📮 已到貨</div>
-                <div onclick="switchTab(3)" class="flex-1 py-3 flex flex-col items-center text-neutral-400" id="tab-3">🏠 返咗屋企</div>
-            </div>
-        </nav>
     </div>
-
-    <!-- 詳情頁 -->
-    <div id="detail-modal" class="modal">
-        <div class="bg-white w-full max-w-[480px] min-h-screen flex flex-col">
-            <div class="p-4 border-b flex justify-between">
-                <button onclick="closeDetail()" class="text-2xl">←</button>
-                <h3 class="font-medium">物品詳情</h3>
-                <button onclick="deleteCurrentItem()" class="text-red-500">刪除</button>
-            </div>
-            
-            <img id="detail-photo" class="w-full h-80 object-cover" onclick="changePhoto()">
-            
-            <div class="p-6">
-                <textarea id="detail-note" class="w-full h-32 p-4 border border-neutral-200 rounded-2xl focus:outline-none" placeholder="備註"></textarea>
-            </div>
-            
-            <div class="p-4 border-t flex justify-between">
-                <button onclick="prevItem()" class="text-4xl px-6">←</button>
-                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-12 py-3 rounded-2xl">儲存修改</button>
-                <button onclick="nextItem()" class="text-4xl px-6">→</button>
-            </div>
-        </div>
-    </div>
-
-    <input type="file" id="import-input" accept=".json" class="hidden" onchange="importBackup(event)">
-    <input type="file" id="edit-photo-input" accept="image/*" class="hidden" onchange="handleEditPhoto(event)">
 
     <script>
         let items = [];
         const STORAGE_KEY = "early_buy_items";
-        let currentTab = 0;
-        let currentDetailIndex = -1;
-        let tempPhoto = null;
-        let editingPhotoIndex = -1;
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -130,9 +77,12 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         }
 
+        let tempPhoto = null;
+
         function handlePhotoUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
+            
             const reader = new FileReader();
             reader.onload = function(ev) {
                 tempPhoto = ev.target.result;
@@ -143,24 +93,30 @@
         }
 
         function addItem() {
+            console.log("加入紀錄按鈕被點擊"); // 用來除錯
+
             if (!tempPhoto) {
                 alert("請先上傳照片！");
                 return;
             }
 
-            items.unshift({
+            const note = (document.getElementById("item-note").value || "").trim() || "無備註";
+
+            const newItem = {
                 id: Date.now(),
-                note: document.getElementById("item-note").value.trim() || "無備註",
+                note: note,
                 photo: tempPhoto,
                 paid: document.getElementById("new-paid").checked,
                 arrived: document.getElementById("new-arrived").checked,
                 home: document.getElementById("new-home").checked,
                 date: new Date().toISOString()
-            });
+            };
 
+            items.unshift(newItem);
             saveData();
             resetForm();
             renderItems();
+            
             alert("✅ 已成功加入紀錄！");
         }
 
@@ -175,142 +131,28 @@
 
         function renderItems() {
             const container = document.getElementById("purchase-grid");
-            let filtered = items;
+            container.innerHTML = "";
 
-            if (currentTab === 1) filtered = items.filter(i => i.paid);
-            if (currentTab === 2) filtered = items.filter(i => i.arrived);
-            if (currentTab === 3) filtered = items.filter(i => i.home);
+            if (items.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-gray-400">暫無紀錄</div>`;
+                return;
+            }
 
-            container.innerHTML = filtered.length === 0 ? 
-                `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
-
-            filtered.forEach((item) => {
-                const index = items.findIndex(i => i.id === item.id);
+            items.forEach(item => {
                 const div = document.createElement("div");
-                div.className = "photo-item card";
+                div.className = "card p-3";
                 div.innerHTML = `
-                    <img src="${item.photo}" onclick="openDetail(${index})">
-                    <div class="p-3">
-                        <div class="text-sm font-medium">${item.note}</div>
-                        <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
+                    <img src="${item.photo}" class="w-full rounded-2xl">
+                    <div class="mt-3">
+                        <div class="font-medium">${item.note}</div>
+                        <div class="text-xs text-gray-500">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function switchTab(tab) {
-            currentTab = tab;
-            document.querySelectorAll('nav > div > div').forEach((el, i) => {
-                el.classList.toggle('nav-active', i === tab);
-                el.classList.toggle('text-neutral-400', i !== tab);
-            });
-            renderItems();
-        }
-
-        function openDetail(index) {
-            currentDetailIndex = index;
-            const item = items[index];
-            document.getElementById("detail-photo").src = item.photo;
-            document.getElementById("detail-note").value = item.note;
-            document.getElementById("detail-modal").style.display = "flex";
-        }
-
-        function closeDetail() {
-            document.getElementById("detail-modal").style.display = "none";
-        }
-
-        function saveDetail() {
-            if (currentDetailIndex === -1) return;
-            items[currentDetailIndex].note = document.getElementById("detail-note").value.trim() || "無備註";
-            saveData();
-            closeDetail();
-            renderItems();
-        }
-
-        function prevItem() {
-            if (currentDetailIndex > 0) openDetail(currentDetailIndex - 1);
-        }
-
-        function nextItem() {
-            if (currentDetailIndex < items.length - 1) openDetail(currentDetailIndex + 1);
-        }
-
-        function deleteCurrentItem() {
-            if (currentDetailIndex === -1) return;
-            if (confirm("確定刪除此物品？")) {
-                items.splice(currentDetailIndex, 1);
-                saveData();
-                closeDetail();
-                renderItems();
-            }
-        }
-
-        // 點擊詳情頁大圖更換照片
-        function changePhoto() {
-            editingPhotoIndex = currentDetailIndex;
-            document.getElementById('edit-photo-input').click();
-        }
-
-        function handleEditPhoto(e) {
-            const file = e.target.files[0];
-            if (!file || editingPhotoIndex === -1) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                items[editingPhotoIndex].photo = ev.target.result;
-                document.getElementById("detail-photo").src = ev.target.result;
-                saveData();
-                renderItems();
-                alert("✅ 照片已更新！");
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // 備份功能
-        function showExportInfo() {
-            if (items.length === 0) return alert("目前沒有紀錄");
-            if (confirm("【備份流程】\n\n1. 即將下載備份檔案\n2. 請保存好此檔案\n3. 換電話時用「上傳」還原\n\n確定下載？")) {
-                exportBackup();
-            }
-        }
-
-        function exportBackup() {
-            const dataStr = JSON.stringify(items, null, 2);
-            const link = document.createElement('a');
-            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-            link.download = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
-            link.click();
-            alert("✅ 備份已下載！");
-        }
-
-        function showImportInfo() {
-            if (confirm("【還原備份】\n\n1. 選擇之前下載的備份檔案\n2. 目前資料會被取代\n\n確定繼續？")) {
-                document.getElementById('import-input').click();
-            }
-        }
-
-        function importBackup(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                try {
-                    items = JSON.parse(ev.target.result);
-                    saveData();
-                    renderItems();
-                    alert("✅ 資料還原成功！");
-                } catch(err) {
-                    alert("檔案格式錯誤！");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        window.onload = () => {
-            loadData();
-            switchTab(0);
-        };
+        window.onload = loadData;
     </script>
 </body>
 </html>
