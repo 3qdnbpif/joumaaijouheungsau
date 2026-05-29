@@ -25,6 +25,10 @@
                     <i class="fa-solid fa-bear text-3xl text-[#5C6B6A]"></i>
                     <h1 class="text-2xl font-medium">早買早享受</h1>
                 </div>
+                <div class="flex gap-4">
+                    <button onclick="showExportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-download"></i></button>
+                    <button onclick="showImportInfo()" class="text-[#5C6B6A]"><i class="fa-solid fa-upload"></i></button>
+                </div>
             </div>
         </header>
 
@@ -47,23 +51,23 @@
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
                        class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
 
-                <div class="mt-6 grid grid-cols-3 gap-4">
-                    <label class="flex flex-col items-center cursor-pointer">
+                <div class="mt-6 grid grid-cols-3 gap-4 text-center">
+                    <label class="cursor-pointer">
                         <input type="checkbox" id="new-paid" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="text-sm mt-1">💸 已俾錢</span>
+                        <span class="block text-sm mt-1">💸 已俾錢</span>
                     </label>
-                    <label class="flex flex-col items-center cursor-pointer">
+                    <label class="cursor-pointer">
                         <input type="checkbox" id="new-arrived" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="text-sm mt-1">📮 已到貨</span>
+                        <span class="block text-sm mt-1">📮 已到貨</span>
                     </label>
-                    <label class="flex flex-col items-center cursor-pointer">
+                    <label class="cursor-pointer">
                         <input type="checkbox" id="new-home" class="w-6 h-6 accent-[#5C6B6A]">
-                        <span class="text-sm mt-1">🏠 返咗屋企</span>
+                        <span class="block text-sm mt-1">🏠 返咗屋企</span>
                     </label>
                 </div>
 
                 <button onclick="addItem()" 
-                        class="w-full mt-8 bg-[#5C6B6A] text-white py-5 rounded-2xl font-medium text-lg active:bg-[#4A5958]">
+                        class="w-full mt-8 bg-[#5C6B6A] text-white py-5 rounded-2xl font-medium text-lg">
                     加入紀錄
                 </button>
             </div>
@@ -82,28 +86,31 @@
         </nav>
     </div>
 
-    <!-- 詳情 Modal -->
+    <!-- 詳情頁 -->
     <div id="detail-modal" class="modal">
-        <div class="bg-white w-full max-w-[480px] rounded-t-3xl min-h-[70vh] flex flex-col">
-            <div class="p-4 border-b flex justify-between items-center">
+        <div class="bg-white w-full max-w-[480px] min-h-screen flex flex-col">
+            <div class="p-4 border-b flex justify-between">
                 <button onclick="closeDetail()" class="text-2xl">←</button>
                 <h3 class="font-medium">物品詳情</h3>
                 <button onclick="deleteCurrentItem()" class="text-red-500">刪除</button>
             </div>
             
-            <img id="detail-photo" class="w-full h-80 object-cover">
+            <img id="detail-photo" class="w-full h-80 object-cover" onclick="changePhoto()">
             
-            <div class="p-6 flex-1">
-                <textarea id="detail-note" class="w-full h-32 p-4 border border-neutral-200 rounded-2xl focus:outline-none resize-none" placeholder="輸入備註..."></textarea>
+            <div class="p-6">
+                <textarea id="detail-note" class="w-full h-32 p-4 border border-neutral-200 rounded-2xl focus:outline-none" placeholder="備註"></textarea>
             </div>
             
             <div class="p-4 border-t flex justify-between">
-                <button onclick="prevItem()" class="px-8 py-3 text-3xl">←</button>
-                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-10 py-3 rounded-2xl">儲存修改</button>
-                <button onclick="nextItem()" class="px-8 py-3 text-3xl">→</button>
+                <button onclick="prevItem()" class="text-4xl px-6">←</button>
+                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-12 py-3 rounded-2xl">儲存修改</button>
+                <button onclick="nextItem()" class="text-4xl px-6">→</button>
             </div>
         </div>
     </div>
+
+    <input type="file" id="import-input" accept=".json" class="hidden" onchange="importBackup(event)">
+    <input type="file" id="edit-photo-input" accept="image/*" class="hidden" onchange="handleEditPhoto(event)">
 
     <script>
         let items = [];
@@ -111,6 +118,7 @@
         let currentTab = 0;
         let currentDetailIndex = -1;
         let tempPhoto = null;
+        let editingPhotoIndex = -1;
 
         function loadData() {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -176,15 +184,15 @@
             container.innerHTML = filtered.length === 0 ? 
                 `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
 
-            filtered.forEach((item, idx) => {
-                const globalIndex = items.findIndex(i => i.id === item.id);
+            filtered.forEach((item) => {
+                const index = items.findIndex(i => i.id === item.id);
                 const div = document.createElement("div");
                 div.className = "photo-item card";
                 div.innerHTML = `
-                    <img src="${item.photo}" onclick="openDetail(${globalIndex})">
+                    <img src="${item.photo}" onclick="openDetail(${index})">
                     <div class="p-3">
                         <div class="text-sm font-medium">${item.note}</div>
-                        <div class="text-xs text-neutral-400">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
+                        <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -194,13 +202,8 @@
         function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('nav > div > div').forEach((el, i) => {
-                if (i === tab) {
-                    el.classList.add('nav-active', 'text-[#5C6B6A]');
-                    el.classList.remove('text-neutral-400');
-                } else {
-                    el.classList.remove('nav-active', 'text-[#5C6B6A]');
-                    el.classList.add('text-neutral-400');
-                }
+                el.classList.toggle('nav-active', i === tab);
+                el.classList.toggle('text-neutral-400', i !== tab);
             });
             renderItems();
         }
@@ -241,6 +244,67 @@
                 closeDetail();
                 renderItems();
             }
+        }
+
+        // 點擊詳情頁大圖更換照片
+        function changePhoto() {
+            editingPhotoIndex = currentDetailIndex;
+            document.getElementById('edit-photo-input').click();
+        }
+
+        function handleEditPhoto(e) {
+            const file = e.target.files[0];
+            if (!file || editingPhotoIndex === -1) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                items[editingPhotoIndex].photo = ev.target.result;
+                document.getElementById("detail-photo").src = ev.target.result;
+                saveData();
+                renderItems();
+                alert("✅ 照片已更新！");
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 備份功能
+        function showExportInfo() {
+            if (items.length === 0) return alert("目前沒有紀錄");
+            if (confirm("【備份流程】\n\n1. 即將下載備份檔案\n2. 請保存好此檔案\n3. 換電話時用「上傳」還原\n\n確定下載？")) {
+                exportBackup();
+            }
+        }
+
+        function exportBackup() {
+            const dataStr = JSON.stringify(items, null, 2);
+            const link = document.createElement('a');
+            link.href = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            link.download = `早買早享受_備份_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+            alert("✅ 備份已下載！");
+        }
+
+        function showImportInfo() {
+            if (confirm("【還原備份】\n\n1. 選擇之前下載的備份檔案\n2. 目前資料會被取代\n\n確定繼續？")) {
+                document.getElementById('import-input').click();
+            }
+        }
+
+        function importBackup(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    items = JSON.parse(ev.target.result);
+                    saveData();
+                    renderItems();
+                    alert("✅ 資料還原成功！");
+                } catch(err) {
+                    alert("檔案格式錯誤！");
+                }
+            };
+            reader.readAsText(file);
         }
 
         window.onload = () => {
