@@ -14,6 +14,7 @@
         .card { background: white; border-radius: 20px; box-shadow: 0 4px 12px rgba(92, 107, 106, 0.08); }
         .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
         .photo-item img { width: 100%; height: 200px; object-fit: cover; cursor: pointer; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body class="bg-[#F9F7F2]">
@@ -28,7 +29,6 @@
         </header>
 
         <main class="flex-1 overflow-y-auto p-5 pb-24">
-            <!-- 上傳區域 -->
             <div class="card p-6 mb-8">
                 <h2 class="font-medium mb-4">📸 上傳新物品</h2>
                 
@@ -47,24 +47,23 @@
                 <input id="item-note" type="text" placeholder="備註（可留空）" 
                        class="w-full mt-5 px-5 py-4 border border-neutral-200 rounded-2xl focus:outline-none">
 
-                <!-- 狀態選擇 -->
                 <div class="mt-6 grid grid-cols-3 gap-4">
                     <label class="flex flex-col items-center cursor-pointer">
-                        <input type="checkbox" id="new-paid" class="w-6 h-6">
+                        <input type="checkbox" id="new-paid" class="w-6 h-6 accent-[#5C6B6A]">
                         <span class="text-sm mt-1">💸 已俾錢</span>
                     </label>
                     <label class="flex flex-col items-center cursor-pointer">
-                        <input type="checkbox" id="new-arrived" class="w-6 h-6">
+                        <input type="checkbox" id="new-arrived" class="w-6 h-6 accent-[#5C6B6A]">
                         <span class="text-sm mt-1">📮 已到貨</span>
                     </label>
                     <label class="flex flex-col items-center cursor-pointer">
-                        <input type="checkbox" id="new-home" class="w-6 h-6">
+                        <input type="checkbox" id="new-home" class="w-6 h-6 accent-[#5C6B6A]">
                         <span class="text-sm mt-1">🏠 返咗屋企</span>
                     </label>
                 </div>
 
                 <button onclick="addItem()" 
-                        class="w-full mt-8 bg-[#5C6B6A] hover:bg-[#4A5958] text-white py-5 rounded-2xl font-medium text-lg">
+                        class="w-full mt-8 bg-[#5C6B6A] text-white py-5 rounded-2xl font-medium text-lg active:bg-[#4A5958]">
                     加入紀錄
                 </button>
             </div>
@@ -83,10 +82,34 @@
         </nav>
     </div>
 
+    <!-- 詳情 Modal -->
+    <div id="detail-modal" class="modal">
+        <div class="bg-white w-full max-w-[480px] rounded-t-3xl min-h-[70vh] flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center">
+                <button onclick="closeDetail()" class="text-2xl">←</button>
+                <h3 class="font-medium">物品詳情</h3>
+                <button onclick="deleteCurrentItem()" class="text-red-500">刪除</button>
+            </div>
+            
+            <img id="detail-photo" class="w-full h-80 object-cover">
+            
+            <div class="p-6 flex-1">
+                <textarea id="detail-note" class="w-full h-32 p-4 border border-neutral-200 rounded-2xl focus:outline-none resize-none" placeholder="輸入備註..."></textarea>
+            </div>
+            
+            <div class="p-4 border-t flex justify-between">
+                <button onclick="prevItem()" class="px-8 py-3 text-3xl">←</button>
+                <button onclick="saveDetail()" class="bg-[#5C6B6A] text-white px-10 py-3 rounded-2xl">儲存修改</button>
+                <button onclick="nextItem()" class="px-8 py-3 text-3xl">→</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let items = [];
         const STORAGE_KEY = "early_buy_items";
         let currentTab = 0;
+        let currentDetailIndex = -1;
         let tempPhoto = null;
 
         function loadData() {
@@ -102,7 +125,6 @@
         function handlePhotoUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = function(ev) {
                 tempPhoto = ev.target.result;
@@ -118,11 +140,9 @@
                 return;
             }
 
-            const note = document.getElementById("item-note").value.trim() || "無備註";
-
             items.unshift({
                 id: Date.now(),
-                note: note,
+                note: document.getElementById("item-note").value.trim() || "無備註",
                 photo: tempPhoto,
                 paid: document.getElementById("new-paid").checked,
                 arrived: document.getElementById("new-arrived").checked,
@@ -133,7 +153,6 @@
             saveData();
             resetForm();
             renderItems();
-            
             alert("✅ 已成功加入紀錄！");
         }
 
@@ -154,14 +173,10 @@
             if (currentTab === 2) filtered = items.filter(i => i.arrived);
             if (currentTab === 3) filtered = items.filter(i => i.home);
 
-            container.innerHTML = "";
+            container.innerHTML = filtered.length === 0 ? 
+                `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>` : "";
 
-            if (filtered.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center py-20 text-neutral-400">暫無紀錄</div>`;
-                return;
-            }
-
-            filtered.forEach(item => {
+            filtered.forEach((item, idx) => {
                 const globalIndex = items.findIndex(i => i.id === item.id);
                 const div = document.createElement("div");
                 div.className = "photo-item card";
@@ -169,7 +184,7 @@
                     <img src="${item.photo}" onclick="openDetail(${globalIndex})">
                     <div class="p-3">
                         <div class="text-sm font-medium">${item.note}</div>
-                        <div class="text-xs text-neutral-400 mt-1">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
+                        <div class="text-xs text-neutral-400">${new Date(item.date).toLocaleDateString('zh-TW')}</div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -178,7 +193,7 @@
 
         function switchTab(tab) {
             currentTab = tab;
-            document.querySelectorAll('nav div').forEach((el, i) => {
+            document.querySelectorAll('nav > div > div').forEach((el, i) => {
                 if (i === tab) {
                     el.classList.add('nav-active', 'text-[#5C6B6A]');
                     el.classList.remove('text-neutral-400');
@@ -191,8 +206,41 @@
         }
 
         function openDetail(index) {
-            alert("詳情頁開發中...\n\n備註: " + items[index].note);
-            // 之後可再擴展成完整詳情頁
+            currentDetailIndex = index;
+            const item = items[index];
+            document.getElementById("detail-photo").src = item.photo;
+            document.getElementById("detail-note").value = item.note;
+            document.getElementById("detail-modal").style.display = "flex";
+        }
+
+        function closeDetail() {
+            document.getElementById("detail-modal").style.display = "none";
+        }
+
+        function saveDetail() {
+            if (currentDetailIndex === -1) return;
+            items[currentDetailIndex].note = document.getElementById("detail-note").value.trim() || "無備註";
+            saveData();
+            closeDetail();
+            renderItems();
+        }
+
+        function prevItem() {
+            if (currentDetailIndex > 0) openDetail(currentDetailIndex - 1);
+        }
+
+        function nextItem() {
+            if (currentDetailIndex < items.length - 1) openDetail(currentDetailIndex + 1);
+        }
+
+        function deleteCurrentItem() {
+            if (currentDetailIndex === -1) return;
+            if (confirm("確定刪除此物品？")) {
+                items.splice(currentDetailIndex, 1);
+                saveData();
+                closeDetail();
+                renderItems();
+            }
         }
 
         window.onload = () => {
