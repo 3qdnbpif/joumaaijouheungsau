@@ -570,6 +570,33 @@
         };
         reader.readAsText(file);
         e.target.value = '';
+
+        // === 緊急資料恢復工具 ===
+    async function emergencyRecover() {
+        console.log("開始緊急恢復...");
+        
+        // 從舊 LocalStorage 恢復
+        const oldData = localStorage.getItem('purchaseRecords');
+        if (oldData) {
+            try {
+                const oldRecords = JSON.parse(oldData);
+                if (oldRecords && oldRecords.length > 0) {
+                    records = oldRecords;
+                    await saveToStorage();
+                    renderAll();
+                    alert(`✅ 成功恢復 ${oldRecords.length} 筆舊紀錄！`);
+                    return;
+                }
+            } catch(e) {}
+        }
+        
+        alert("未能自動找到舊資料。\n\n如果你之前有下載過 .json 備份，請點擊「備份」按鈕 → 「上傳備份」來恢復。");
+    }
+
+    // 執行恢復
+    window.addEventListener('load', () => {
+        setTimeout(emergencyRecover, 600);
+    });
     }
 </script>
 </body>
