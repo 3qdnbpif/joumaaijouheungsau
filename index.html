@@ -512,7 +512,7 @@
         hideBackupModal();
     }
 
-        function importData(e) {
+            function importData(e) {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -521,26 +521,47 @@
             try {
                 const importedRecords = JSON.parse(ev.target.result);
                 
-                if (!Array.isArray(importedRecords)) {
-                    alert("備份檔案格式錯誤！");
+                if (!Array.isArray(importedRecords) || importedRecords.length === 0) {
+                    alert("備份檔案格式錯誤或沒有資料！");
                     return;
                 }
 
-                // 確認是否要覆蓋
+                let action = "overwrite";
+
                 if (records.length > 0) {
-                    if (!confirm(`目前有 ${records.length} 筆紀錄，確定要用備份覆蓋嗎？`)) {
-                        return;
-                    }
+                    const choice = confirm(
+                        `目前已有 ${records.length} 筆紀錄。\n\n` +
+                        `要如何處理備份？\n\n` +
+                        `確定 = 覆蓋現有紀錄\n` +
+                        `取消 = 合併紀錄（保留舊的 + 新增備份中的）`
+                    );
+                    action = choice ? "overwrite" : "merge";
                 }
 
-                records = importedRecords;
-                
-                // 重要：保存到 IndexedDB
+                if (action === "overwrite") {
+                    records = importedRecords;
+                    console.log(`已覆蓋為 ${records.length} 筆紀錄`);
+                } else {
+                    // 合併模式
+                    const existingIds = new Set(records.map(r => r.id));
+                    let added = 0;
+
+                    importedRecords.forEach(record => {
+                        if (!existingIds.has(record.id)) {
+                            records.push(record);
+                            added++;
+                        }
+                    });
+
+                    console.log(`合併完成，新增 ${added} 筆紀錄，總共 ${records.length} 筆`);
+                }
+
+                // 保存到 IndexedDB
                 await saveToStorage();
                 
                 renderAll();
                 hideBackupModal();
-                showToast("✅ 備份匯入成功！");
+                showToast(action === "overwrite" ? "✅ 已覆蓋匯入" : `✅ 合併成功（新增 ${importedRecords.length} 筆）`);
                 
             } catch (err) {
                 console.error(err);
@@ -550,11 +571,6 @@
         reader.readAsText(file);
         e.target.value = ''; // 重置 input
     }
-
-    window.onload = async () => {
-        await loadRecords();
-        switchTab(0);
-    };
 </script>
 </body>
 </html>
