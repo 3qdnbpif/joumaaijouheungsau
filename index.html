@@ -512,24 +512,43 @@
         hideBackupModal();
     }
 
-    function importData(e) {
+        function importData(e) {
         const file = e.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
-        reader.onload = ev => {
+        reader.onload = async function(ev) {
             try {
-                records = JSON.parse(ev.target.result);
-                saveToStorage().then(() => {
-                    renderAll();
-                    hideBackupModal();
-                    showToast("✅ 匯入成功！");
-                });
-            } catch(err) { 
-                alert("檔案格式錯誤"); 
+                const importedRecords = JSON.parse(ev.target.result);
+                
+                if (!Array.isArray(importedRecords)) {
+                    alert("備份檔案格式錯誤！");
+                    return;
+                }
+
+                // 確認是否要覆蓋
+                if (records.length > 0) {
+                    if (!confirm(`目前有 ${records.length} 筆紀錄，確定要用備份覆蓋嗎？`)) {
+                        return;
+                    }
+                }
+
+                records = importedRecords;
+                
+                // 重要：保存到 IndexedDB
+                await saveToStorage();
+                
+                renderAll();
+                hideBackupModal();
+                showToast("✅ 備份匯入成功！");
+                
+            } catch (err) {
+                console.error(err);
+                alert("匯入失敗：檔案格式錯誤或損壞");
             }
         };
         reader.readAsText(file);
-        e.target.value = '';
+        e.target.value = ''; // 重置 input
     }
 
     window.onload = async () => {
