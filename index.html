@@ -205,7 +205,6 @@
     let currentTab = 0;
     let detailRecordIds = [];
     let currentStatus = 'paid';
-    let db = null;
 
     const STATUS_OPTIONS = [
         { key: 'paid', emoji: '💸', label: '已付款' },
@@ -213,119 +212,18 @@
         { key: 'home', emoji: '🏠', label: '返咗屋企' }
     ];
 
-    // 初始化 IndexedDB
-    function initDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open('PurchaseDB', 1);
-            
-            request.onupgradeneeded = (event) => {
-                db = event.target.result;
-                if (!db.objectStoreNames.contains('records')) {
-                    db.createObjectStore('records', { keyPath: 'id' });
-                }
-            };
-            
-            request.onsuccess = (event) => {
-                db = event.target.result;
-                console.log("✅ IndexedDB 初始化成功");
-                resolve();
-            };
-            
-            request.onerror = (event) => {
-                console.error("❌ IndexedDB 開啟失敗", event);
-                reject(event);
-            };
-        });
+    function loadRecords() {
+        records = JSON.parse(localStorage.getItem('purchaseRecords') || '[]');
+        renderAll();
     }
 
-        // === 資料恢復工具（執行一次即可）===
-    async function recoverData() {
-        // 1. 先試從舊 LocalStorage 恢復
-        const oldData = localStorage.getItem('purchaseRecords');
-        if (oldData) {
-            try {
-                const oldRecords = JSON.parse(oldData);
-                if (oldRecords.length > 0) {
-                    records = oldRecords;
-                    await saveToStorage();
-                    renderAll();
-                    alert(`✅ 已從舊儲存空間恢復 ${oldRecords.length} 筆紀錄！`);
-                    return;
-                }
-            } catch(e) {}
-        }
-        
-        alert("未能從舊儲存空間找到資料。\n\n請使用「上傳備份」功能匯入你之前下載的 .json 備份檔案。");
+    function saveToStorage() {
+        localStorage.setItem('purchaseRecords', JSON.stringify(records));
     }
 
-        async function saveToStorage() {
-        if (!db) await initDB();
-        
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(['records'], 'readwrite');
-            const store = transaction.objectStore('records');
-            
-            // 先清空再寫入（確保一致）
-            store.clear();
-            
-            records.forEach(record => {
-                store.put(record);
-            });
-            
-            transaction.oncomplete = () => {
-                console.log(`✅ 已保存 ${records.length} 筆紀錄到 IndexedDB`);
-                resolve(true);
-            };
-            
-            transaction.onerror = (e) => {
-                console.error("IndexedDB 保存失敗", e);
-                reject(e);
-            };
-        });
-    }
-
-            async function loadRecords() {
-        if (!db) {
-            await initDB();
-        }
-        
-        return new Promise((resolve) => {
-            const transaction = db.transaction(['records'], 'readonly');
-            const store = transaction.objectStore('records');
-            const request = store.getAll();
-            
-            request.onsuccess = function() {
-                records = request.result || [];
-                console.log(`已載入 ${records.length} 筆紀錄`);
-                renderAll();
-                resolve();
-            };
-            
-            request.onerror = function() {
-                console.error("載入失敗，使用空陣列");
-                records = [];
-                renderAll();
-                resolve();
-            };
-        });
-    }
-
-        function renderAll() {
-        // 全部記錄
+    function renderAll() {
         renderGrid('all-grid', records);
         document.getElementById('all-count').textContent = records.length;
-
-        // 已付款
-        const paid = records.filter(r => r.status === 'paid');
-        renderGrid('paid-grid', paid);
-
-        // 已到貨
-        const shipped = records.filter(r => r.status === 'shipped');
-        renderGrid('shipped-grid', shipped);
-
-        // 已返屋企
-        const home = records.filter(r => r.status === 'home');
-        renderGrid('home-grid', home);
     }
 
     function renderGrid(id, data) {
@@ -344,15 +242,6 @@
         currentTab = tab;
         document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(['tab-all','tab-paid','tab-shipped','tab-home'][tab]).classList.remove('hidden');
-        
-        // 底部高亮
-        document.querySelectorAll('nav button').forEach((btn, i) => {
-            if (i === tab) {
-                btn.classList.add('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
-            } else {
-                btn.classList.remove('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
-            }
-        });
     }
 
     function showAddModal(editRecord = null) {
@@ -418,40 +307,34 @@
             return;
         }
 
-        try {
-            if (currentEditId) {
-                const record = records.find(r => r.id === currentEditId);
-                if (record) {
-                    record.notes = notes || "無備註";
-                    if (currentPhotoBase64) record.image = currentPhotoBase64;
-                    record.status = currentStatus;
-                }
-            } else {
-                if (!currentPhotoBase64) {
-                    alert("請上傳照片！");
-                    return;
-                }
-                records.unshift({
-                    id: 'rec_' + Date.now(),
-                    image: currentPhotoBase64,
-                    notes: notes || "無備註",
-                    status: currentStatus,
-                    timestamp: Date.now()
-                });
+        if (currentEditId) {
+            const record = records.find(r => r.id === currentEditId);
+            if (record) {
+                record.notes = notes || "無備註";
+                if (currentPhotoBase64) record.image = currentPhotoBase64;
+                record.status = currentStatus;
             }
-
-            saveToStorage().then(() => {
-                hideAddModal();
-                renderAll();
-                showToast(currentEditId ? "✅ 更新成功" : "✅ 新增成功！");
-                currentEditId = null;
-                currentPhotoBase64 = null;
+        } else {
+            if (!currentPhotoBase64) {
+                alert("請上傳照片！");
+                return;
+            }
+            records.unshift({
+                id: 'rec_' + Date.now(),
+                image: currentPhotoBase64,
+                notes: notes || "無備註",
+                status: currentStatus,
+                timestamp: Date.now()
             });
-
-        } catch (err) {
-            console.error(err);
-            alert("保存失敗，請再試一次");
         }
+
+        saveToStorage();
+        hideAddModal();
+        renderAll();
+        showToast(currentEditId ? "✅ 更新成功" : "✅ 新增成功！");
+        
+        currentEditId = null;
+        currentPhotoBase64 = null;
     }
 
     function showToast(msg) {
@@ -460,6 +343,8 @@
         toast.classList.remove('hidden');
         setTimeout(() => toast.classList.add('hidden'), 2800);
     }
+
+    // 其他函數保持不變（showDetail, hideDetailModal, prevRecord 等）
 
     function showDetail(id) {
         const sorted = [...records].sort((a,b) => b.timestamp - a.timestamp);
@@ -513,10 +398,9 @@
     function deleteCurrentRecord() {
         if (confirm("確定刪除？")) {
             records = records.filter(r => r.id !== currentDetailId);
-            saveToStorage().then(() => {
-                hideDetailModal();
-                renderAll();
-            });
+            saveToStorage();
+            hideDetailModal();
+            renderAll();
         }
     }
 
@@ -541,85 +425,43 @@
         hideBackupModal();
     }
 
-            function importData(e) {
+    function importData(e) {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = async function(ev) {
+        reader.onload = function(ev) {
             try {
-                const importedRecords = JSON.parse(ev.target.result);
-                
-                if (!Array.isArray(importedRecords) || importedRecords.length === 0) {
-                    alert("備份檔案格式錯誤！");
-                    return;
-                }
-
+                const imported = JSON.parse(ev.target.result);
                 if (records.length > 0) {
-                    const choice = confirm(
-                        `目前已有 ${records.length} 筆紀錄。\n\n` +
-                        `要如何處理備份？\n\n` +
-                        `覆蓋紀錄 = 刪除現有全部，用備份取代\n` +
-                        `合併紀錄 = 保留現有 + 新增備份中沒有的`
-                    );
-                    
-                    if (choice) {
-                        // 覆蓋
-                        records = importedRecords;
+                    if (confirm("確定要覆蓋現有紀錄嗎？")) {
+                        records = imported;
                     } else {
                         // 合併
-                        const existingIds = new Set(records.map(r => r.id));
-                        importedRecords.forEach(record => {
-                            if (!existingIds.has(record.id)) {
-                                records.push(record);
-                            }
+                        const ids = new Set(records.map(r => r.id));
+                        imported.forEach(r => {
+                            if (!ids.has(r.id)) records.push(r);
                         });
                     }
                 } else {
-                    records = importedRecords;
+                    records = imported;
                 }
-
-                await saveToStorage();
+                saveToStorage();
                 renderAll();
                 hideBackupModal();
                 showToast("✅ 匯入成功！");
-                
-            } catch (err) {
-                console.error(err);
-                alert("匯入失敗：檔案格式錯誤");
+            } catch(err) {
+                alert("檔案格式錯誤");
             }
         };
         reader.readAsText(file);
         e.target.value = '';
     }
 
-        // === 緊急資料恢復工具 ===
-    async function emergencyRecover() {
-        console.log("開始緊急恢復...");
-        
-        // 從舊 LocalStorage 恢復
-        const oldData = localStorage.getItem('purchaseRecords');
-        if (oldData) {
-            try {
-                const oldRecords = JSON.parse(oldData);
-                if (oldRecords && oldRecords.length > 0) {
-                    records = oldRecords;
-                    await saveToStorage();
-                    renderAll();
-                    alert(`✅ 成功恢復 ${oldRecords.length} 筆舊紀錄！`);
-                    return;
-                }
-            } catch(e) {}
-        }
-        
-        alert("未能自動找到舊資料。\n\n如果你之前有下載過 .json 備份，請點擊「備份」按鈕 → 「上傳備份」來恢復。");
-    }
-
-    // 執行恢復
-    window.addEventListener('load', () => {
-        setTimeout(emergencyRecover, 600);
-    });
-    }
+    window.onload = () => {
+        loadRecords();
+        switchTab(0);
+    };
 </script>
 </body>
 </html>
