@@ -205,6 +205,7 @@
     let currentTab = 0;
     let detailRecordIds = [];
     let currentStatus = 'paid';
+    let db = null;
 
     const STATUS_OPTIONS = [
         { key: 'paid', emoji: '💸', label: '已付款' },
@@ -212,54 +213,77 @@
         { key: 'home', emoji: '🏠', label: '返咗屋企' }
     ];
 
-    function loadRecords() {
-        records = JSON.parse(localStorage.getItem('purchaseRecords') || '[]');
-        renderAll();
+    // 初始化 IndexedDB
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('PurchaseDB', 1);
+            
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains('records')) {
+                    db.createObjectStore('records', { keyPath: 'id' });
+                }
+            };
+            
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                console.log("✅ IndexedDB 初始化成功");
+                resolve();
+            };
+            
+            request.onerror = (event) => {
+                console.error("❌ IndexedDB 開啟失敗", event);
+                reject(event);
+            };
+        });
     }
 
-            function saveToStorage() {
-        try {
-            const dataStr = JSON.stringify(records);
-            console.log("準備寫入 LocalStorage，大小:", (dataStr.length / 1024).toFixed(1) + "KB");
+    // 載入所有記錄
+    async function loadRecords() {
+        if (!db) await initDB();
+        
+        return new Promise((resolve) => {
+            const transaction = db.transaction(['records'], 'readonly');
+            const store = transaction.objectStore('records');
+            const request = store.getAll();
+            
+            request.onsuccess = () => {
+                records = request.result || [];
+                renderAll();
+                resolve();
+            };
+        });
+    }
 
-            localStorage.setItem('purchaseRecords', dataStr);
-
-            // 驗證
-            const saved = localStorage.getItem('purchaseRecords');
-            if (saved && saved.length > 0) {
-                console.log("✅ LocalStorage 寫入成功");
-                return true;
-            } else {
-                console.error("❌ 寫入後讀取失敗");
-                return false;
-            }
-        } catch (err) {
-            console.error("LocalStorage 錯誤:", err.name, err.message);
-            if (err.name === "QuotaExceededError") {
-                alert("儲存空間已滿！請先刪除一些舊紀錄再試");
-            } else {
-                alert("LocalStorage 寫入失敗: " + err.message);
-            }
-            return false;
-        }
+    // 保存到 IndexedDB
+    async function saveToStorage() {
+        if (!db) await initDB();
+        
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(['records'], 'readwrite');
+            const store = transaction.objectStore('records');
+            
+            store.clear(); // 先清空再重新寫入
+            
+            records.forEach(record => {
+                store.put(record);
+            });
+            
+            transaction.oncomplete = () => {
+                console.log("✅ IndexedDB 保存成功");
+                resolve(true);
+            };
+            
+            transaction.onerror = (e) => {
+                console.error("❌ IndexedDB 保存失敗", e);
+                reject(e);
+            };
+        });
     }
 
     function renderAll() {
-        // 全部
         renderGrid('all-grid', records);
         document.getElementById('all-count').textContent = records.length;
-
-        // 已付款
-        const paid = records.filter(r => r.status === 'paid');
-        renderGrid('paid-grid', paid);
-
-        // 已到貨
-        const shipped = records.filter(r => r.status === 'shipped');
-        renderGrid('shipped-grid', shipped);
-
-        // 已返屋企
-        const home = records.filter(r => r.status === 'home');
-        renderGrid('home-grid', home);
     }
 
     function renderGrid(id, data) {
@@ -278,15 +302,6 @@
         currentTab = tab;
         document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(['tab-all','tab-paid','tab-shipped','tab-home'][tab]).classList.remove('hidden');
-        
-        // 底部高亮
-        document.querySelectorAll('nav button').forEach((btn, i) => {
-            if (i === tab) {
-                btn.classList.add('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
-            } else {
-                btn.classList.remove('text-[#874FC2]', 'border-t-2', 'border-[#874FC2]');
-            }
-        });
     }
 
     function showAddModal(editRecord = null) {
@@ -344,14 +359,9 @@
         document.getElementById('photo-upload-area').classList.remove('hidden');
     }
 
-    // === 關鍵修復：saveRecord ===
-            function saveRecord() {
+    function saveRecord() {
         const notes = document.getElementById('notes-input').value.trim();
         
-        console.log("=== 保存前檢查 ===");
-        console.log("currentPhotoBase64 存在:", !!currentPhotoBase64);
-        console.log("currentEditId:", currentEditId);
-
         if (!currentPhotoBase64 && !currentEditId) {
             alert("請上傳照片！");
             return;
@@ -379,22 +389,17 @@
                 });
             }
 
-            const success = saveToStorage();
-            if (!success) return;
-
-            hideAddModal();
-            
-            // iOS 重要延遲
-            setTimeout(() => {
+            saveToStorage().then(() => {
+                hideAddModal();
                 renderAll();
-                showToast("✅ 新增成功！");
+                showToast(currentEditId ? "✅ 更新成功" : "✅ 新增成功！");
                 currentEditId = null;
                 currentPhotoBase64 = null;
-            }, 500);
+            });
 
         } catch (err) {
-            console.error("保存過程異常:", err);
-            alert("保存失敗，請重新上傳照片後再試一次");
+            console.error(err);
+            alert("保存失敗，請再試一次");
         }
     }
 
@@ -419,7 +424,6 @@
                 ${getStatusEmoji(record.status)} ${getStatusLabel(record.status)}
             </div>
         `;
-        
         document.getElementById('detail-modal').classList.remove('hidden');
     }
 
@@ -458,9 +462,10 @@
     function deleteCurrentRecord() {
         if (confirm("確定刪除？")) {
             records = records.filter(r => r.id !== currentDetailId);
-            saveToStorage();
-            hideDetailModal();
-            renderAll();
+            saveToStorage().then(() => {
+                hideDetailModal();
+                renderAll();
+            });
         }
     }
 
@@ -492,18 +497,21 @@
         reader.onload = ev => {
             try {
                 records = JSON.parse(ev.target.result);
-                saveToStorage();
-                renderAll();
-                hideBackupModal();
-                showToast("✅ 匯入成功！");
-            } catch(err) { alert("檔案格式錯誤"); }
+                saveToStorage().then(() => {
+                    renderAll();
+                    hideBackupModal();
+                    showToast("✅ 匯入成功！");
+                });
+            } catch(err) { 
+                alert("檔案格式錯誤"); 
+            }
         };
         reader.readAsText(file);
         e.target.value = '';
     }
 
-    window.onload = () => {
-        loadRecords();
+    window.onload = async () => {
+        await loadRecords();
         switchTab(0);
     };
 </script>
