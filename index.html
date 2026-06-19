@@ -284,7 +284,7 @@
         });
     }
 
-        async function loadRecords() {
+            async function loadRecords() {
         if (!db) {
             await initDB();
         }
@@ -302,7 +302,7 @@
             };
             
             request.onerror = function() {
-                console.error("載入紀錄失敗");
+                console.error("載入失敗，使用空陣列");
                 records = [];
                 renderAll();
                 resolve();
@@ -541,7 +541,7 @@
         hideBackupModal();
     }
 
-                function importData(e) {
+            function importData(e) {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -551,7 +551,7 @@
                 const importedRecords = JSON.parse(ev.target.result);
                 
                 if (!Array.isArray(importedRecords) || importedRecords.length === 0) {
-                    alert("備份檔案格式錯誤或沒有資料！");
+                    alert("備份檔案格式錯誤！");
                     return;
                 }
 
@@ -566,19 +566,14 @@
                     if (choice) {
                         // 覆蓋
                         records = importedRecords;
-                        console.log("已覆蓋紀錄");
                     } else {
                         // 合併
                         const existingIds = new Set(records.map(r => r.id));
-                        let added = 0;
-                        
                         importedRecords.forEach(record => {
                             if (!existingIds.has(record.id)) {
                                 records.push(record);
-                                added++;
                             }
                         });
-                        console.log(`合併完成，新增 ${added} 筆`);
                     }
                 } else {
                     records = importedRecords;
@@ -596,6 +591,7 @@
         };
         reader.readAsText(file);
         e.target.value = '';
+    }
 
         // === 緊急資料恢復工具 ===
     async function emergencyRecover() {
