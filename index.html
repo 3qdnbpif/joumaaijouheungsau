@@ -258,13 +258,6 @@
         alert("未能從舊儲存空間找到資料。\n\n請使用「上傳備份」功能匯入你之前下載的 .json 備份檔案。");
     }
 
-    // 自動執行恢復（只執行一次）
-    window.addEventListener('load', () => {
-        if (records.length === 0) {
-            setTimeout(recoverData, 800);
-        }
-    });
-
     // 保存到 IndexedDB
     async function saveToStorage() {
         if (!db) await initDB();
@@ -522,7 +515,7 @@
         hideBackupModal();
     }
 
-            function importData(e) {
+                function importData(e) {
         const file = e.target.files[0];
         if (!file) return;
 
@@ -536,50 +529,47 @@
                     return;
                 }
 
-                let action = "overwrite";
-
                 if (records.length > 0) {
                     const choice = confirm(
                         `目前已有 ${records.length} 筆紀錄。\n\n` +
                         `要如何處理備份？\n\n` +
-                        `確定 = 覆蓋現有紀錄\n` +
-                        `取消 = 合併紀錄（保留舊的 + 新增備份中的）`
+                        `覆蓋紀錄 = 刪除現有全部，用備份取代\n` +
+                        `合併紀錄 = 保留現有 + 新增備份中沒有的`
                     );
-                    action = choice ? "overwrite" : "merge";
-                }
-
-                if (action === "overwrite") {
-                    records = importedRecords;
-                    console.log(`已覆蓋為 ${records.length} 筆紀錄`);
+                    
+                    if (choice) {
+                        // 覆蓋
+                        records = importedRecords;
+                        console.log("已覆蓋紀錄");
+                    } else {
+                        // 合併
+                        const existingIds = new Set(records.map(r => r.id));
+                        let added = 0;
+                        
+                        importedRecords.forEach(record => {
+                            if (!existingIds.has(record.id)) {
+                                records.push(record);
+                                added++;
+                            }
+                        });
+                        console.log(`合併完成，新增 ${added} 筆`);
+                    }
                 } else {
-                    // 合併模式
-                    const existingIds = new Set(records.map(r => r.id));
-                    let added = 0;
-
-                    importedRecords.forEach(record => {
-                        if (!existingIds.has(record.id)) {
-                            records.push(record);
-                            added++;
-                        }
-                    });
-
-                    console.log(`合併完成，新增 ${added} 筆紀錄，總共 ${records.length} 筆`);
+                    records = importedRecords;
                 }
 
-                // 保存到 IndexedDB
                 await saveToStorage();
-                
                 renderAll();
                 hideBackupModal();
-                showToast(action === "overwrite" ? "✅ 已覆蓋匯入" : `✅ 合併成功（新增 ${importedRecords.length} 筆）`);
+                showToast("✅ 匯入成功！");
                 
             } catch (err) {
                 console.error(err);
-                alert("匯入失敗：檔案格式錯誤或損壞");
+                alert("匯入失敗：檔案格式錯誤");
             }
         };
         reader.readAsText(file);
-        e.target.value = ''; // 重置 input
+        e.target.value = '';
     }
 </script>
 </body>
