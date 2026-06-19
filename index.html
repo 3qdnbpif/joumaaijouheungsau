@@ -258,28 +258,54 @@
         alert("未能從舊儲存空間找到資料。\n\n請使用「上傳備份」功能匯入你之前下載的 .json 備份檔案。");
     }
 
-    // 保存到 IndexedDB
-    async function saveToStorage() {
+        async function saveToStorage() {
         if (!db) await initDB();
         
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(['records'], 'readwrite');
             const store = transaction.objectStore('records');
             
-            store.clear(); // 先清空再重新寫入
+            // 先清空再寫入（確保一致）
+            store.clear();
             
             records.forEach(record => {
                 store.put(record);
             });
             
             transaction.oncomplete = () => {
-                console.log("✅ IndexedDB 保存成功");
+                console.log(`✅ 已保存 ${records.length} 筆紀錄到 IndexedDB`);
                 resolve(true);
             };
             
             transaction.onerror = (e) => {
-                console.error("❌ IndexedDB 保存失敗", e);
+                console.error("IndexedDB 保存失敗", e);
                 reject(e);
+            };
+        });
+    }
+
+        async function loadRecords() {
+        if (!db) {
+            await initDB();
+        }
+        
+        return new Promise((resolve) => {
+            const transaction = db.transaction(['records'], 'readonly');
+            const store = transaction.objectStore('records');
+            const request = store.getAll();
+            
+            request.onsuccess = function() {
+                records = request.result || [];
+                console.log(`已載入 ${records.length} 筆紀錄`);
+                renderAll();
+                resolve();
+            };
+            
+            request.onerror = function() {
+                console.error("載入紀錄失敗");
+                records = [];
+                renderAll();
+                resolve();
             };
         });
     }
