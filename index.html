@@ -238,22 +238,32 @@
         });
     }
 
-    // 載入所有記錄
-    async function loadRecords() {
-        if (!db) await initDB();
+        // === 資料恢復工具（執行一次即可）===
+    async function recoverData() {
+        // 1. 先試從舊 LocalStorage 恢復
+        const oldData = localStorage.getItem('purchaseRecords');
+        if (oldData) {
+            try {
+                const oldRecords = JSON.parse(oldData);
+                if (oldRecords.length > 0) {
+                    records = oldRecords;
+                    await saveToStorage();
+                    renderAll();
+                    alert(`✅ 已從舊儲存空間恢復 ${oldRecords.length} 筆紀錄！`);
+                    return;
+                }
+            } catch(e) {}
+        }
         
-        return new Promise((resolve) => {
-            const transaction = db.transaction(['records'], 'readonly');
-            const store = transaction.objectStore('records');
-            const request = store.getAll();
-            
-            request.onsuccess = () => {
-                records = request.result || [];
-                renderAll();
-                resolve();
-            };
-        });
+        alert("未能從舊儲存空間找到資料。\n\n請使用「上傳備份」功能匯入你之前下載的 .json 備份檔案。");
     }
+
+    // 自動執行恢復（只執行一次）
+    window.addEventListener('load', () => {
+        if (records.length === 0) {
+            setTimeout(recoverData, 800);
+        }
+    });
 
     // 保存到 IndexedDB
     async function saveToStorage() {
